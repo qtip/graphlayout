@@ -1,8 +1,9 @@
+import math
+
 from collections import defaultdict
 from collections import namedtuple
 from collections import OrderedDict
-import re
-import math
+
 
 Link = namedtuple('Link', ('target_obj', 'src_ratio', 'target_ratio', 'offset'))
 
@@ -40,6 +41,12 @@ class DimensionLinks:
         else:
             self.center_link = None
 
+    def __eq__(self, other):
+        return (
+            (self.negative_link, self.center_link, self.positive_link) ==
+            (other.negative_link, other.center_link, other.positive_link)
+        )
+
 
 class LinkerMethod:
 
@@ -52,6 +59,14 @@ class LinkerMethod:
     def __call__(self, other_obj, offset=0):
         self.dimension_links.link_to(other_obj, self.src_ratio, self.target_ratio, offset)
         return self.node
+
+    def __eq__(self, other):
+        return (
+            (self.node, self.dimension_links,
+             self.src_ratio, self.target_ratio) ==
+            (other.node, other.dimension_links,
+             other.src_ratio, other.target_ratio)
+        )
 
 
 class Node:
@@ -142,12 +157,6 @@ class Node:
         return '.'.join(out)
 
 
-_link_method_attrs = {
-    'left': 0, 'center': 0.5, 'right': 1,
-    'top': 0,  'middle': 0.5, 'bottom': 1,
-}
-
-
 def _link_method_generator(from_name, from_value, to_name, to_value):
     """
     Generates a method named [from_name]_to_[to_name] to be set on the
@@ -164,13 +173,23 @@ def _link_method_generator(from_name, from_value, to_name, to_value):
     method.__name__ = '{}_to_{}'.format(from_name, to_name)
     return method
 
+
+seeds = (
+    {'left': 0, 'center': 0.5, 'right': 1},
+    {'top': 0, 'middle': 0.5, 'bottom': 1}
+)
+
 method = None
-for (name1, value1), (name2, value2) in zip(_link_method_attrs.items(),
-                                            _link_method_attrs.items()):
-    if name1 != name2:
-        method = _link_method_generator(name1, value1, name2, value2)
-        setattr(Node, method.__name__, method)
+method_attrs = None
+for method_attrs in seeds:
+    for name1, value1 in method_attrs.items():
+        for name2, value2 in method_attrs.items():
+            if name1 != name2:
+                method = _link_method_generator(name1, value1, name2, value2)
+                setattr(Node, method.__name__, method)
 del method
+del method_attrs
+del seeds
 
 
 class Box:
