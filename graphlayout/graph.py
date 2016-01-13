@@ -55,9 +55,6 @@ class LinkerMethod:
 
 
 class Node:
-    __LINK_METHOD_PATTERN = re.compile(r'(?P<x_src>left|center|right)_to_(?P<x_target>left|center|right)|(?P<y_src>top|middle|bottom)_to_(?P<y_target>top|middle|bottom)')
-    __LINK_NAMES = {'left': 0, 'center': 0.5, 'right': 1, 'top': 0, 'middle': 0.5, 'bottom': 1}
-
     def __init__(self, graph, obj):
         self.graph = graph
         self.obj = obj
@@ -66,17 +63,6 @@ class Node:
         self.z_links = DimensionLinks()
         self._width = 0
         self._height = 0
-
-    def __getattribute__(self, name):
-        link_match = Node.__LINK_METHOD_PATTERN.match(name)
-        if link_match:
-            x_src, x_target, y_src, y_target = link_match.groups()
-            if x_src and x_target:
-                return LinkerMethod(self, self.x_links, Node.__LINK_NAMES[x_src], Node.__LINK_NAMES[x_target])
-            elif y_src and y_target:
-                return LinkerMethod(self, self.y_links, Node.__LINK_NAMES[y_src], Node.__LINK_NAMES[y_target])
-        else:
-            return object.__getattribute__(self, name)
 
     def top_unlink(self):
         self.y_links.unlink(0)
@@ -154,6 +140,37 @@ class Node:
         out = []
         out.append("{cls}({self.obj!r})".format(cls=self.__class__.__name__, self=self))
         return '.'.join(out)
+
+
+_link_method_attrs = {
+    'left': 0, 'center': 0.5, 'right': 1,
+    'top': 0,  'middle': 0.5, 'bottom': 1,
+}
+
+
+def _link_method_generator(from_name, from_value, to_name, to_value):
+    """
+    Generates a method named [from_name]_to_[to_name] to be set on the
+    Node class.
+
+    The methods created are function factories for creating LinkerMethod
+    instances with the correct source and target ratios.
+
+    Returns:
+        the generated method
+    """
+    def method(self):
+        return LinkerMethod(self, self.x_links, from_value, to_value)
+    method.__name__ = '{}_to_{}'.format(from_name, to_name)
+    return method
+
+method = None
+for (name1, value1), (name2, value2) in zip(_link_method_attrs.items(),
+                                            _link_method_attrs.items()):
+    if name1 != name2:
+        method = _link_method_generator(name1, value1, name2, value2)
+        setattr(Node, method.__name__, method)
+del method
 
 
 class Box:
