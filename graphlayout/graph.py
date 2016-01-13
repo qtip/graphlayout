@@ -23,7 +23,7 @@ class DimensionLinks:
             yield self.positive_link
 
     def link_to(self, target_object, src_ratio, target_ratio, offset):
-        offset = math.copysign(1, 0.5 - src_ratio) * offset
+        offset *= math.copysign(1, 0.5 - src_ratio)
         link = Link(target_object, src_ratio, target_ratio, offset)
         if src_ratio < 0.5:
             self.negative_link = link
@@ -69,7 +69,7 @@ class Node:
         return self
 
     def middle_unlink(self):
-        self.y_link.unlink(0)
+        self.y_links.unlink(0)
         return self
 
     def bottom_unlink(self):
