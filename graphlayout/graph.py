@@ -48,27 +48,6 @@ class DimensionLinks:
         )
 
 
-class LinkerMethod:
-
-    def __init__(self, node, dimension_links, src_ratio, target_ratio):
-        self.node = node
-        self.dimension_links = dimension_links
-        self.src_ratio = src_ratio
-        self.target_ratio = target_ratio
-
-    def __call__(self, other_obj, offset=0):
-        self.dimension_links.link_to(other_obj, self.src_ratio, self.target_ratio, offset)
-        return self.node
-
-    def __eq__(self, other):
-        return (
-            (self.node, self.dimension_links,
-             self.src_ratio, self.target_ratio) ==
-            (other.node, other.dimension_links,
-             other.src_ratio, other.target_ratio)
-        )
-
-
 class Node:
     def __init__(self, graph, obj):
         self.graph = graph
@@ -157,7 +136,28 @@ class Node:
         return '.'.join(out)
 
 
-def _link_method_generator(from_name, from_value, to_name, to_value):
+class LinkerMethod:
+
+    def __init__(self, node, dimension_links, src_ratio, target_ratio):
+        self.node = node
+        self.dimension_links = dimension_links
+        self.src_ratio = src_ratio
+        self.target_ratio = target_ratio
+
+    def __call__(self, other_obj, offset=0):
+        self.dimension_links.link_to(other_obj, self.src_ratio, self.target_ratio, offset)
+        return self.node
+
+    def __eq__(self, other):
+        return (
+            (self.node, self.dimension_links,
+             self.src_ratio, self.target_ratio) ==
+            (other.node, other.dimension_links,
+             other.src_ratio, other.target_ratio)
+        )
+
+
+def _link_method_generator(from_name, from_ratio, to_name, to_ratio):
     """
     Generates a method named [from_name]_to_[to_name] to be set on the
     Node class.
@@ -168,8 +168,16 @@ def _link_method_generator(from_name, from_value, to_name, to_value):
     Returns:
         the generated method
     """
-    def method(self):
-        return LinkerMethod(self, self.x_links, from_value, to_value)
+    # determine which axis this method will affect
+    if from_name in ('left', 'center', 'right'):
+        links='x_links'
+    elif from_name in ('top', 'middle', 'bottom'):
+        links='y_links'
+
+    def method(self, other_obj, offset=0):
+        dimension_links = getattr(self, links)
+        dimension_links.link_to(other_obj, from_ratio, to_ratio, offset)
+        return self
     method.__name__ = '{}_to_{}'.format(from_name, to_name)
     return method
 
@@ -184,9 +192,8 @@ method_attrs = None
 for method_attrs in seeds:
     for name1, value1 in method_attrs.items():
         for name2, value2 in method_attrs.items():
-            if name1 != name2:
-                method = _link_method_generator(name1, value1, name2, value2)
-                setattr(Node, method.__name__, method)
+            method = _link_method_generator(name1, value1, name2, value2)
+            setattr(Node, method.__name__, method)
 del method
 del method_attrs
 del seeds
